@@ -29,8 +29,8 @@ import { ObjectKeys } from 'molstar/lib/mol-util/type-helpers';
 import { PluginLayoutControlsDisplay } from 'molstar/lib/mol-plugin/layout';
 import { SuperposeColorThemeProvider } from './helpers/superpose/color';
 import { NakbColorThemeProvider } from './helpers/nakb/color';
-import { setFocusFromRange, removeComponent, clearSelection, createComponent, select } from './helpers/viewer';
-import { SelectBase, SelectRange, SelectTarget, Target } from './helpers/selection';
+import { setFocusFromRange, removeComponent, clearSelection, createComponent, select, toResidues } from './helpers/viewer';
+import { SelectBase, SelectRange, SelectTarget, Target, rangeToTest } from './helpers/selection';
 import { StructureRepresentationRegistry } from 'molstar/lib/mol-repr/structure/registry';
 import { DefaultPluginUISpec, PluginUISpec } from 'molstar/lib/mol-plugin-ui/spec';
 import { PluginUIContext } from 'molstar/lib/mol-plugin-ui/context';
@@ -54,6 +54,10 @@ import { wwPDBChemicalComponentDictionary } from 'molstar/lib/extensions/wwpdb/c
 import { ChemicalCompontentTrajectoryHierarchyPreset } from 'molstar/lib/extensions/wwpdb/ccd/representation';
 import { StateTransforms } from 'molstar/lib/mol-plugin-state/transforms';
 import { lociLabel } from 'molstar/lib/mol-theme/label';
+import { StructureSelectionQuery } from 'molstar/lib/mol-plugin-state/helpers/structure-selection-query';
+import { setSubtreeVisibility } from 'molstar/lib/mol-plugin/behavior/static/state';
+import { MolScriptBuilder as MS } from 'molstar/lib/mol-script/language/builder';
+
 
 /** package version, filled in at bundle build time */
 declare const __RCSB_MOLSTAR_VERSION__: string;
@@ -584,5 +588,31 @@ export class LigandViewer {
                 }
             }
         }
+    }
+    setSubtreeVisibility(structureIdx: number, componentIdx: number, isHidden: boolean) {
+	    let dataState = this._plugin.state.data;
+	    let component = this._plugin.managers.structure.component.currentStructures[structureIdx].components[componentIdx].cell.transform.ref;
+	    return setSubtreeVisibility(dataState, component, isHidden);
+    }
+
+    async makeComponent(structureIdx: number, chain: string, beg: number, end: number) {
+	    let structureRef = this._plugin.managers.structure.hierarchy.current.structures[structureIdx];
+	    if (structureRef.cell.obj != undefined) {
+		    let target = {modelId: structureRef.cell.obj.data.units[0].model.id, labelAsymId: chain, labelSeqRange: {beg: beg, end: end}}
+		    let residues = toResidues(target);
+		    let sel = StructureSelectionQuery('innerQuery_' + Math.random().toString(36).substring(2), MS.struct.generator.atomGroups(rangeToTest(target.labelAsymId, residues, undefined)));;
+		    await this._plugin.managers.structure.component.add({
+			selection: sel,
+			options: { checkExisting: false, label: "test"},
+			representation: "cartoon",
+			}, [structureRef]);
+	    }
+
+    }
+
+    async makeHiddenComponent(structureIdx: number, chain: string, beg: number, end: number) {
+	    await this.makeComponent(structureIdx, chain, beg, end);
+	    this.setSubtreeVisibility(structureIdx, 0, false);
+	    this.setSubtreeVisibility(structureIdx, 1, true);
     }
 }

@@ -96,7 +96,7 @@ export async function createComponent(plugin: PluginContext, componentLabel: str
     }
 }
 
-function toResidues(target: SelectBase | SelectTarget): number[] {
+export function toResidues(target: SelectBase | SelectTarget): number[] {
     if ('labelSeqRange' in target) {
         return toRange(target.labelSeqRange.beg, target.labelSeqRange.end);
     }
